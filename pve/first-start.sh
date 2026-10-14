@@ -25,7 +25,11 @@ dpkg -i pve-fake-subscription_0.0.11+git-1_all.deb
 echo "127.0.0.1 shop.maurer-it.com" >> /etc/hosts
 
 # Nommage des cartes reseau (laisser vide pour ne pas renommer)
+# Methode systemd (.link) : l'ancienne regle udev KERNEL=="eth*" ne marche
+# pas avec les noms modernes (ens18, enp3s0, eno1...)
+# Choisis un nom qui ne commence PAS par "eth" (ex : lan0, wan0, admin0)
 ip -br link
+renomme=0
 for chemin in /sys/class/net/*; do
   carte=$(basename "$chemin")
   [ -e "$chemin/device" ] || continue
@@ -33,9 +37,17 @@ for chemin in /sys/class/net/*; do
   # < /dev/tty : lit le clavier (avec curl | bash, l'entree standard est le script)
   read -r -p "Nouveau nom pour $carte ($mac) : " nom < /dev/tty
   [ -z "$nom" ] && continue
-  echo "SUBSYSTEM==\"net\", ACTION==\"add\", DRIVERS==\"?*\", ATTR{address}==\"$mac\", ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"$nom\"" >> /etc/udev/rules.d/70-persistent-net.rules
-  sed -i "s/$carte/$nom/g" /etc/network/interfaces
+  mkdir -p /etc/systemd/network
+  printf '[Match]\nMACAddress=%s\nType=ether\n\n[Link]\nName=%s\n' "$mac" "$nom" > "/etc/systemd/network/10-$nom.link"
+  [ -f /etc/network/interfaces.bak ] || cp /etc/network/interfaces /etc/network/interfaces.bak
+  # \b : renommer "eno1" ne touche pas "eno12"
+  sed -i "s/\b$carte\b/$nom/g" /etc/network/interfaces
+  renomme=1
 done
+# Le renommage a lieu au demarrage : il faut mettre a jour l'initramfs
+if [ "$renomme" -eq 1 ]; then
+  update-initramfs -u -k all
+fi
 
 # Alias
 echo "alias ll='ls -l'" >> /root/.bashrc
