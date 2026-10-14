@@ -26,10 +26,12 @@ echo "127.0.0.1 shop.maurer-it.com" >> /etc/hosts
 
 # Nommage des cartes reseau (laisser vide pour ne pas renommer)
 ip -br link
-for carte in $(ls /sys/class/net); do
-  [ -e /sys/class/net/$carte/device ] || continue
-  mac=$(cat /sys/class/net/$carte/address)
-  read -p "Nouveau nom pour $carte ($mac) : " nom
+for chemin in /sys/class/net/*; do
+  carte=$(basename "$chemin")
+  [ -e "$chemin/device" ] || continue
+  mac=$(cat "$chemin/address")
+  # < /dev/tty : lit le clavier (avec curl | bash, l'entree standard est le script)
+  read -r -p "Nouveau nom pour $carte ($mac) : " nom < /dev/tty
   [ -z "$nom" ] && continue
   echo "SUBSYSTEM==\"net\", ACTION==\"add\", DRIVERS==\"?*\", ATTR{address}==\"$mac\", ATTR{type}==\"1\", KERNEL==\"eth*\", NAME=\"$nom\"" >> /etc/udev/rules.d/70-persistent-net.rules
   sed -i "s/$carte/$nom/g" /etc/network/interfaces
