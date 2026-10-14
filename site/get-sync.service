@@ -1,0 +1,16 @@
+[Unit]
+Description=Synchronise get.andries.icu avec GitHub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=getsync
+Group=getsync
+ExecStart=/usr/bin/bash /opt/scripts/site/sync.sh
+# Durcissement : le service ne peut écrire que dans ses deux dossiers
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/scripts /var/lib/get-site

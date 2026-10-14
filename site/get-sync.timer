@@ -1,0 +1,11 @@
+[Unit]
+Description=Synchronisation get.andries.icu toutes les 2 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=2min
+RandomizedDelaySec=15s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
