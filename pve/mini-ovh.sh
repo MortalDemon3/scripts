@@ -177,19 +177,27 @@ add() {
   read_name || return 0
   local id="" i ip pw dns tmp
 
-  if pvesh get "/access/users/$LOGIN@pve" >/dev/null 2>&1; then
-    echo "$LOGIN existe déjà : ajout d'une machine."
+  # Un seul mot de passe par élève : Proxmox + root de toutes ses machines
+  mkdir -p "$CRED/$LOGIN"
+  if [ -s "$CRED/$LOGIN/.password" ]; then
+    pw="$(cat "$CRED/$LOGIN/.password")"
   else
     pw="$(pass)"
-    pvesh create /access/users --userid "$LOGIN@pve" --password "$pw" --firstname "$FIRST" --lastname "$LAST" >/dev/null
-    mkdir -p "$CRED/$LOGIN"
-    printf 'Proxmox : https://%s:8006\n  utilisateur : %s   (realm : Proxmox VE authentication server)\n  mot de passe : %s\n' \
-      "$HOST" "$LOGIN" "$pw" > "$CRED/$LOGIN/proxmox.txt"
+    echo "$pw" > "$CRED/$LOGIN/.password"; chmod 600 "$CRED/$LOGIN/.password"
   fi
+  if pvesh get "/access/users/$LOGIN@pve" >/dev/null 2>&1; then
+    echo "$LOGIN existe déjà : ajout d'une machine (même mot de passe)."
+    pvesh set /access/password --userid "$LOGIN@pve" --password "$pw" >/dev/null 2>&1 \
+      || echo "Attention : mot de passe Proxmox non mis à jour, fais : pveum passwd $LOGIN@pve"
+  else
+    pvesh create /access/users --userid "$LOGIN@pve" --password "$pw" --firstname "$FIRST" --lastname "$LAST" >/dev/null
+  fi
+  printf 'Proxmox : https://%s:8006\n  utilisateur : %s   (realm : Proxmox VE authentication server)\n  mot de passe : %s   (le même pour Proxmox et root sur toutes ses machines)\n' \
+    "$HOST" "$LOGIN" "$pw" > "$CRED/$LOGIN/proxmox.txt"
 
   for i in $(seq 501 599); do pvesh get /cluster/nextid --vmid "$i" >/dev/null 2>&1 && { id=$i; break; }; done
   [ -n "$id" ] || die "plus d'ID libre entre 501 et 599"
-  ip="10.10.10.$((id - 400))"; pw="$(pass)"
+  ip="10.10.10.$((id - 400))"
   dns="$(awk '/^nameserver/ && $2 !~ /^127|:/ {print $2}' /etc/resolv.conf | xargs)"
 
   echo "Création du CT $id ($ip)..."
@@ -211,8 +219,8 @@ add() {
     || die "installation échouée dans le CT $id (diagnostic : pct enter $id)"
   pct exec "$id" -- rm -f /root/setup.sh </dev/null
 
-  printf '\nCT %s\n  SSH : ssh -p %s root@%s\n  mot de passe root : %s\n  site : http://%s:%s   (fichiers dans /opt/www)\n' \
-    "$id" "$((2000 + id))" "$HOST" "$pw" "$HOST" "$((8000 + id))" > "$CRED/$LOGIN/ct-$id.txt"
+  printf '\nCT %s\n  SSH : ssh -p %s root@%s\n  site : http://%s:%s   (fichiers dans /opt/www)\n' \
+    "$id" "$((2000 + id))" "$HOST" "$HOST" "$((8000 + id))" > "$CRED/$LOGIN/ct-$id.txt"
   show "$LOGIN"
 }
 
