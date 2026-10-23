@@ -1,7 +1,6 @@
 #!/bin/sh
-# =============================================================================
 #  DESC: Installation web + vHost /opt/site
-#  install-web-vhost.sh — Serveur web Apache + vhost /opt/site
+# =============================================================================
 #  Auteur : Alexis (MortalDemon3) — https://get.andries.icu
 # -----------------------------------------------------------------------------
 #  DESCRIPTION
